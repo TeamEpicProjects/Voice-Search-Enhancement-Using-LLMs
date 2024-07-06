@@ -45,6 +45,7 @@ The steps covered within the previous two sections were collectively carried out
 
 ### High-level Workflow
 ![Workflow Image](./Model_Workflow.png)
+
 The high-level workflow is illustrated above and can be summarized as follows:
 1. **User Input**: The user's voice input is taken and checked for silence.
 2. **Transcription**: If silence is detected for more than 4 seconds, the input is sent to OpenAI's Whisper model for speech-to-text conversion.
