@@ -10,7 +10,6 @@ numpy
 torch
 torchaudio
 transformers
-pyaudio
 tqdm
 tensorflow
 tf-keras
