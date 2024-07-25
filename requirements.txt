@@ -11,4 +11,6 @@ transformers
 python-dotenv
 pillow
 soundfile
+ffmpeg-python
+ffprobe-python
 Wave
