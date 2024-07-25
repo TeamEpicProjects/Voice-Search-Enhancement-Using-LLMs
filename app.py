@@ -4,7 +4,7 @@
 
 import torch
 from transformers import pipeline
-from speech_to_text import get_transcript
+from speech_to_text import transcribe_audio_whisper
 from get_search_dict import get_clean_prod_info
 from streamlit_carousel import carousel
 import streamlit as st
@@ -12,6 +12,8 @@ from PIL import Image, ImageDraw, ImageFont
 import requests
 from io import BytesIO
 import base64
+from audiorecorder import audiorecorder
+import os
 
 def get_base64_placeholder_image():
     # Create a simple placeholder image
@@ -68,6 +70,7 @@ def inject_css(css_file_path):
 
 inject_css('./styles.css')
 
+
 # Page title
 st.markdown("<h1 style='text-align: center;'>Flipkart Products Voice-Based Search Enhancement</h1>", unsafe_allow_html=True)
 
@@ -75,12 +78,17 @@ st.markdown("<h1 style='text-align: center;'>Flipkart Products Voice-Based Searc
 _, col2, _ = st.columns([1, 2, 1])
 
 with col2:
+
+    audio = None
+
     st.markdown('<div class="centered-image">', unsafe_allow_html=True)
     st.image("mic_logo.png")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Create a button
-    mic_button = st.button('Click to Speak', key="mic_button")
+    st.markdown('<div class="audio-recorder-container">', unsafe_allow_html=True)
+    # Create an audio recorder
+    audio = audiorecorder("Click to record", "Stop Recording")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # Initialize session state
 if 'query_results' not in st.session_state:
@@ -89,8 +97,8 @@ if 'query_results' not in st.session_state:
 if 'model_initialized' not in st.session_state:
     st.session_state['model_initialized'] = False
 
-if 'recording_stopped' not in st.session_state:
-    st.session_state['recording_stopped'] = True
+# if 'recording_stopped' not in st.session_state:
+#     st.session_state['recording_stopped'] = True
 
 # Display messages
 if not st.session_state['model_initialized']:
@@ -106,15 +114,31 @@ if not st.session_state['model_initialized']:
 
 whisper_pipeline = st.session_state['whisper_pipeline']
 
-# Handle the click event
-if mic_button:
-    st.session_state['recording_stopped'] = False
+# Handle the recorded audio
+if len(audio) > 0: 
     with col2:
-        st.markdown('<div class="message-bar">Speak Now...</div>', unsafe_allow_html=True)
+        st.markdown('<div class="message-bar">Processing your audio...</div>', unsafe_allow_html=True)
         
-        transcript = get_transcript(whisper_pipeline)
+        # Convert the AudioSegment to wav format
+        audio_buffer = BytesIO()
+        audio.export(audio_buffer, format="wav")
+        
+        # Save the audio temporarily
+        with open("temp_audio.wav", "wb") as f:
+            f.write(audio_buffer.getvalue())
+        
+        print(f"Audio saved. Duration: {len(audio) / 1000} seconds")
+        
+        # Transcribe the audio
+        transcript = transcribe_audio_whisper("temp_audio.wav", whisper_pipeline)
+        
+        print(f"Transcription result: {transcript}")
+        
+        # Process the transcript
         st.session_state['query_results'] = get_clean_prod_info(transcript)
 
+        # Clean up
+        os.remove("temp_audio.wav")
 
 # Creating a results container   
 results_container = st.empty()
@@ -158,14 +182,14 @@ if st.session_state['query_results']:
                     st.markdown(f'<p class="product-name"><strong>Product Name:</strong> {product.get("name", "N/A")}</p>', unsafe_allow_html=True)
                     st.markdown(f'<p class="product-price"><strong>Price:</strong> {product.get("price", "N/A")}</p>', unsafe_allow_html=True)
                     st.markdown(f'<p class="product-category"><strong>Category:</strong> {product.get("category", "N/A")}</p>', unsafe_allow_html=True)
-                    st.markdown(f'<p class="product-description"><strong>Description:</strong></p>', unsafe_allow_html=True)
+                    st.markdown('<p class="product-description"><strong>Description:</strong></p>', unsafe_allow_html=True)
                     st.markdown(f'<div class="description">{product.get("description", "N/A")}</div>', unsafe_allow_html=True)
-                    st.markdown(f'<p class="product-specifications"><strong>Specifications:</strong></p>', unsafe_allow_html=True)
+                    st.markdown('<p class="product-specifications"><strong>Specifications:</strong></p>', unsafe_allow_html=True)
                     
                     specifications_html = product.get("specifications", "N/A").replace('\n', '<br>')
                     st.markdown(f'<div class="specifications">{specifications_html}</div>', unsafe_allow_html=True)
                     
-                    st.markdown(f'<p class="product-url"><strong>Buy Now:</strong> <a href="{product.get("url", "#")}">{product.get("url", "N/A")}</a></p>', unsafe_allow_html=True)
+                    st.markdown(f'<p class="product-url"><strong>Buy Now:</strong> <a href="{product.get("url", "#")}" target="_blank">{product.get("url", "N/A")}</a></p>', unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
 else:
     with col2:
